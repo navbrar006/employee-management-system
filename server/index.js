@@ -26,6 +26,9 @@ function saveEmployees(data) {
 app.get("/employees", (req, res) => {
   res.json(loadEmployees());
 });
+app.get("/", (req, res) => {
+  res.send("Employee Management API is running 🚀 Use /employees");
+});
 
 app.post("/employees", (req, res) => {
   const employees = loadEmployees();
