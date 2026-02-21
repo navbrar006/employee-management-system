@@ -128,3 +128,4 @@ function invalidInput() {
 }
 
 showMenu();
+module.exports = app;
