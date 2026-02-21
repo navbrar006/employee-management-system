@@ -1,131 +1,63 @@
-#!/usr/bin/env node
-const readline = require("readline");
-const {
-    addEmployee,
-    getEmployees,
-    updateEmployee,
-    deleteEmployee
-} = require("./employeeManager");
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
+const app = express();
+app.use(express.json()); // ✅ REQUIRED
+
+const dataFile = path.join(__dirname, "data", "employees.json");
+
+// Helpers
+function loadEmployees() {
+  try {
+    if (!fs.existsSync(dataFile)) return [];
+    const data = fs.readFileSync(dataFile, "utf-8");
+    return JSON.parse(data || "[]");
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveEmployees(data) {
+  fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+}
+
+// Routes
+app.get("/employees", (req, res) => {
+  res.json(loadEmployees());
 });
 
-function showMenu() {
-    console.log("\n=== Employee Management System ===");
-    console.log("1. Add Employee");
-    console.log("2. View Employees");
-    console.log("3. Update Employee");
-    console.log("4. Delete Employee");
-    console.log("5. Exit");
+app.post("/employees", (req, res) => {
+  const employees = loadEmployees();
+  employees.push(req.body);
+  saveEmployees(employees);
+  res.status(201).json({ message: "Employee added" });
+});
 
-    rl.question("Choose an option: ", handleMenu);
-}
+app.put("/employees/:id", (req, res) => {
+  const employees = loadEmployees();
+  const index = employees.findIndex(e => e.id === req.params.id);
 
-function handleMenu(choice) {
-    switch (choice) {
-        case "1":
-            addEmployeeMenu();
-            break;
-        case "2":
-            viewEmployees();
-            break;
-        case "3":
-            updateEmployeeMenu();
-            break;
-        case "4":
-            deleteEmployeeMenu();
-            break;
-        case "5":
-            console.log("Goodbye!");
-            rl.close();
-            break;
-        default:
-            console.log("Invalid choice!");
-            showMenu();
-    }
-}
+  if (index === -1) {
+    return res.status(404).json({ message: "Employee not found" });
+  }
 
-function addEmployeeMenu() {
-    rl.question("Enter ID: ", (id) => {
-        if (!id) return invalidInput();
+  employees[index] = { ...employees[index], ...req.body };
+  saveEmployees(employees);
+  res.json({ message: "Employee updated" });
+});
 
-        rl.question("Enter Name: ", (name) => {
-            if (!name) return invalidInput();
+app.delete("/employees/:id", (req, res) => {
+  const employees = loadEmployees();
+  const filtered = employees.filter(e => e.id !== req.params.id);
 
-            rl.question("Enter Role: ", (role) => {
-                if (!role) return invalidInput();
+  if (filtered.length === employees.length) {
+    return res.status(404).json({ message: "Employee not found" });
+  }
 
-                rl.question("Enter Salary: ", (salary) => {
-                    if (isNaN(salary)) return invalidInput();
+  saveEmployees(filtered);
+  res.json({ message: "Employee deleted" });
+});
 
-                    addEmployee({
-                        id,
-                        name,
-                        role,
-                        salary: Number(salary)
-                    });
-
-                    console.log("Employee added successfully!");
-                    showMenu();
-                });
-            });
-        });
-    });
-}
-
-function viewEmployees() {
-    const employees = getEmployees();
-
-    if (employees.length === 0) {
-        console.log("No employees found.");
-    } else {
-        console.table(employees);
-    }
-    showMenu();
-}
-
-function updateEmployeeMenu() {
-    rl.question("Enter Employee ID to update: ", (id) => {
-        rl.question("Enter new Name: ", (name) => {
-            rl.question("Enter new Role: ", (role) => {
-                rl.question("Enter new Salary: ", (salary) => {
-                    const success = updateEmployee(id, {
-                        name,
-                        role,
-                        salary: Number(salary)
-                    });
-
-                    if (success) {
-                        console.log("Employee updated successfully!");
-                    } else {
-                        console.log("Employee not found.");
-                    }
-                    showMenu();
-                });
-            });
-        });
-    });
-}
-
-function deleteEmployeeMenu() {
-    rl.question("Enter Employee ID to delete: ", (id) => {
-        const success = deleteEmployee(id);
-
-        if (success) {
-            console.log("Employee deleted successfully!");
-        } else {
-            console.log("Employee not found.");
-        }
-        showMenu();
-    });
-}
-
-function invalidInput() {
-    console.log("Invalid input. Please try again.");
-    showMenu();
-}
-
-showMenu();
+// 🔴 THIS LINE IS MANDATORY FOR VERCEL
 module.exports = app;
